@@ -1,0 +1,54 @@
+#!/bin/bash
+
+d=$1
+files=`ls -a $d | sort`		#Create list of files and sort them
+#Declare array that will contain file names beginning with "."
+declare -a filesArrNoDots
+#Declare array that will contain other files
+declare -a filesArrDots
+let i_dot=0
+let i_nodot=0
+for f in $files
+do
+	if [ -f "$d/$f" ]		#Check for a regular file
+	then
+		if [ ! -L "$d/$f" ]	#Check that it's not a symbolic link
+		then
+			if [ ! -r "$d/$f" ]
+			then
+				#Report error if there's a problem reading file
+				echo "Error reading $d/$f"
+			else
+				#Add valid files to arrays
+				if [[ $f == .* ]]
+				then
+					filesArrDots[$i_dot]=$d/$f
+					let i_dot=$i_dot+1
+				else
+					filesArrNoDots[$i_nodot]=$d/$f
+					let i_nodot=$i_nodot+1
+				fi
+			fi
+		fi
+	fi
+done
+
+#Concatenate the arrays so files beginning with "." come first in new array
+filesArr=("${filesArrDots[@]}" "${filesArrNoDots[@]}")
+filesArrSize=${#filesArr[@]}
+
+for ((j=0; j < $[$filesArrSize-1]; j++))
+do
+	f1=${filesArr[j]}
+	for ((k=$j+1; k < $filesArrSize; k++))
+	do
+		f2=${filesArr[k]}
+		cmp -s "$f1" "$f2"	#Compare the files
+		#If files are the same, change the latter to a hard link
+		if [ $? -eq 0 ]	
+		then
+			rm "$f2"
+			ln "$f1" "$f2"
+		fi
+	done
+done
